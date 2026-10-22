@@ -1,0 +1,5 @@
+  "name": "صدایار AI",
+  "description": "دستیار هوشمند تبدیل متن به گفتار فارسی",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
