@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.MonetizationOn
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,7 +42,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
+fun HomeScreen(onOpenProfile: () -> Unit, viewModel: HomeViewModel = viewModel()) {
     val scrollState = rememberScrollState()
     var showSpeedSlider by remember { mutableStateOf(false) }
 
@@ -98,6 +99,15 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
                     },
                     actions = {
                         val context = LocalContext.current
+
+                        // Profile Button
+                        IconButton(onClick = onOpenProfile) {
+                            Icon(
+                                Icons.Default.Person,
+                                contentDescription = "پروفایل کاربری",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
 
                         // Share App Button
                         IconButton(
@@ -243,6 +253,148 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
                                 }
                             }
                         }
+                    }
+
+                    // Tapsell Rewarded Ads Card ("۵ تا تبلیغ ببین و ۲ سکه رایگان ببر")
+                    Card(
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
+                        ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Default.MonetizationOn,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.secondary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "۵ تا تبلیغ ببین",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                }
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.secondary
+                                ) {
+                                    Text(
+                                        text = "${viewModel.watchedAdsCount}/۵ تبلیغ",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSecondary,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "تبلیغ‌گاه: 6ada7006be0ef33af833006f",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = "متصل ✓",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color(0xFF4CAF50),
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+
+                            Text(
+                                text = "۵ تبلیغ ویدئویی تپسل را تا آخر تماشا کنید. پیشرفت هر تبلیغ در سابقه پروفایل ثبت می‌شود.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            LinearProgressIndicator(
+                                progress = { viewModel.watchedAdsCount / 5f },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(8.dp)
+                                    .clip(RoundedCornerShape(4.dp)),
+                                color = MaterialTheme.colorScheme.secondary,
+                                trackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+
+                            val context = LocalContext.current
+                            Button(
+                                onClick = {
+                                    val activity = context as? android.app.Activity
+                                    viewModel.watchAd(activity)
+                                },
+                                enabled = !viewModel.isWatchingAd,
+                                shape = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.secondary
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                if (viewModel.isWatchingAd) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        color = MaterialTheme.colorScheme.onSecondary,
+                                        strokeWidth = 2.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("در حال دریافت تبلیغ از سرور تپسل...", color = MaterialTheme.colorScheme.onSecondary)
+                                } else {
+                                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("مشاهده تبلیغ ویدئویی (${viewModel.watchedAdsCount + 1} از ۵)", color = MaterialTheme.colorScheme.onSecondary, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+
+                    // Quick Story Presets
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        SuggestionChip(
+                            onClick = {
+                                viewModel.text = "روزی روزگاری در دل جنگلی سرسبز و زیبا، روباه کوچکی زندگی می‌کرد که آرزو داشت آواز خواندن باران را بشنود..."
+                            },
+                            label = { Text("داستان جنگل سبز") },
+                            icon = { Icon(Icons.Default.AutoStories, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                            colors = SuggestionChipDefaults.suggestionChipColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                        )
+                        SuggestionChip(
+                            onClick = {
+                                viewModel.text = "شازده کوچولو گفت: آدم‌ها تنها چیزهایی را که اهلی می‌کنند می‌شناسند. انسان‌ها دیگر وقت شناختن هیچ چیز را ندارند..."
+                            },
+                            label = { Text("شازده کوچولو") },
+                            icon = { Icon(Icons.Default.AutoStories, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                            colors = SuggestionChipDefaults.suggestionChipColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                        )
                     }
 
                     // Advanced Frosted Glass Text Input Area
@@ -555,17 +707,33 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
                                 .padding(top = 4.dp)
                         )
                     }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "توسعه دهندگان بازی تک ۱",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
+                    Spacer(modifier = Modifier.height(32.dp))
                 }
             }
 
             // Store Dialog (فروشگاه سکه)
             if (viewModel.showStoreDialog) {
+                val context = LocalContext.current
                 StoreDialog(
                     coinBalance = viewModel.coinBalance,
                     coinPacks = viewModel.coinPacks,
                     transactions = viewModel.transactionHistory,
                     onDismiss = { viewModel.showStoreDialog = false },
-                    onBuyPack = { pack -> viewModel.buyPack(pack) }
+                    onBuyPack = { pack ->
+                        val activity = context as? android.app.Activity
+                        if (activity != null) {
+                            viewModel.buyPack(activity, pack)
+                        } else {
+                            viewModel.buyPackDirect(pack)
+                        }
+                    }
                 )
             }
         }

@@ -19,3 +19,11 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+-keep class ir.tapsell.plus.** { *; }
+-dontwarn ir.tapsell.plus.**
+-keep class ir.tapsell.sdk.** { *; }
+-dontwarn ir.tapsell.sdk.**
+-keep class com.google.android.gms.ads.identifier.** { *; }
+-dontwarn com.google.android.gms.ads.identifier.**
+

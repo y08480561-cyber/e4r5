@@ -7,10 +7,12 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import com.example.tts.CoinManager
+import com.example.ui.HomeScreen
+import com.example.ui.ProfileScreen
+import com.example.ui.RegisterScreen
 import com.example.ui.theme.MyApplicationTheme
 
 class MainActivity : ComponentActivity() {
@@ -19,22 +21,26 @@ class MainActivity : ComponentActivity() {
     enableEdgeToEdge()
     setContent {
       MyApplicationTheme {
+        val coinManager = remember { CoinManager(this) }
+        var isRegistered by remember { mutableStateOf(coinManager.isUserRegistered()) }
+        var currentScreen by remember { mutableStateOf("home") }
+
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-          HomeScreen(Modifier.padding(innerPadding))
+          if (!isRegistered) {
+            RegisterScreen(
+              onRegistered = { isRegistered = true }
+            )
+          } else if (currentScreen == "profile") {
+            ProfileScreen(
+              onBack = { currentScreen = "home" }
+            )
+          } else {
+            HomeScreen(
+              onOpenProfile = { currentScreen = "profile" }
+            )
+          }
         }
       }
     }
   }
-}
-
-@Composable
-fun HomeScreen(modifier: Modifier = Modifier) {
-  com.example.ui.HomeScreen()
-}
-
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-  MyApplicationTheme { com.example.ui.HomeScreen() }
 }

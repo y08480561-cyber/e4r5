@@ -1,5 +1,6 @@
 package com.example.ui
 
+import android.app.Activity
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.compose.runtime.getValue
@@ -7,7 +8,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewModelScope
 import com.example.tts.CoinManager
+import com.example.tts.MyketBillingManager
 import com.example.tts.RealPersianTtsEngine
+import com.example.tts.TapsellAdManager
 import com.example.tts.TransactionManager
 import kotlinx.coroutines.launch
 
@@ -17,6 +20,7 @@ enum class VoiceOption(val id: String, val label: String, val gender: String) {
 }
 
 data class CoinPack(
+    val sku: String,
     val coins: Int,
     val priceToman: String,
     val title: String,
@@ -27,6 +31,22 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     val engine = RealPersianTtsEngine(application)
     private val coinManager = CoinManager(application)
     private val transactionManager = TransactionManager(application)
+    private val tapsellAdManager = TapsellAdManager(application)
+    private val adTaskDao = com.example.data.AppDatabase.getDatabase(application).adTaskDao()
+    
+    private val myketBillingManager = MyketBillingManager(application) { sku, success, message ->
+        if (success) {
+            val pack = coinPacks.find { it.sku == sku } ?: coinPacks.first()
+            coinManager.addCoins(pack.coins)
+            coinBalance = coinManager.getCoins()
+            transactionManager.addTransaction("خرید ${pack.title} (مایکت)", pack.coins)
+            transactionHistory = transactionManager.getTransactions()
+            statusMessage = "$message (${pack.coins} سکه اضافه شد)"
+            showStoreDialog = false
+        } else {
+            statusMessage = message
+        }
+    }
 
     var text by mutableStateOf("")
     var speed by mutableStateOf(0.90f) // Storytelling natural pace
@@ -37,13 +57,18 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     var showStoreDialog by mutableStateOf(false)
     var canClaimDaily by mutableStateOf(coinManager.canClaimDailyReward())
     var transactionHistory by mutableStateOf(transactionManager.getTransactions())
+    
+    // Tapsell Ad Watcher States
+    var watchedAdsCount by mutableStateOf(coinManager.getWatchedAdsCount())
+    var isWatchingAd by mutableStateOf(false)
+    var showTapsellAdDialog by mutableStateOf(false)
 
     val coinPacks = listOf(
-        CoinPack(20, "۵۰,۰۰۰", "بسته ۲۰ سکه"),
-        CoinPack(30, "۷۵,۰۰۰", "بسته ۳۰ سکه"),
-        CoinPack(50, "۱۲۵,۰۰۰", "بسته ۵۰ سکه"),
-        CoinPack(70, "۱۷۵,۰۰۰", "بسته ۷۰ سکه"),
-        CoinPack(50, "۱۰۰,۰۰۰", "بسته ویژه پر تخفیف (۵۰ سکه)", isSpecial = true)
+        CoinPack("coin_pack_20", 20, "۵۰,۰۰۰", "بسته ۲۰ سکه"),
+        CoinPack("coin_pack_30", 30, "۷۵,۰۰۰", "بسته ۳۰ سکه"),
+        CoinPack("coin_pack_50", 50, "۱۲۵,۰۰۰", "بسته ۵۰ سکه"),
+        CoinPack("coin_pack_70", 70, "۱۷۵,۰۰۰", "بسته ۷۰ سکه"),
+        CoinPack("coin_pack_special_50", 50, "۱۰۰,۰۰۰", "بسته ویژه پر تخفیف (۵۰ سکه)", isSpecial = true)
     )
 
     // Status and Progress States
@@ -70,12 +95,80 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun watchAd(activity: Activity?) {
+        if (activity == null) {
+            statusMessage = "خطا در دسترسی به برنامه برای نمایش تبلیغ."
+            return
+        }
+
+        isWatchingAd = true
+        statusMessage = "در حال ارتباط با سرور تپسل و بارگذاری تبلیغ واقعی (${watchedAdsCount + 1} از ۵)..."
+
+        tapsellAdManager.requestAndShowRewardedAd(
+            activity = activity,
+            onAdLoaded = {
+                statusMessage = "تبلیغ تپسل دریافت شد. در حال باز شدن..."
+            },
+            onAdComplete = { success, message ->
+                isWatchingAd = false
+                if (success) {
+                    val current = coinManager.getWatchedAdsCount() + 1
+                    if (current >= 5) {
+                        coinManager.setWatchedAdsCount(0)
+                        watchedAdsCount = 0
+                        transactionManager.addTransaction("مشاهده ۵ تبلیغ کامل تپسل", 0)
+                        transactionHistory = transactionManager.getTransactions()
+                        viewModelScope.launch {
+                            adTaskDao.insertTask(
+                                com.example.data.AdTaskRecordEntity(taskTitle = "تکمیل ۵ تبلیغ ویدئویی واقعی تپسل", rewardCoins = 0)
+                            )
+                        }
+                        statusMessage = "تبریک! ۵ تبلیغ واقعی تپسل با موفقیت دیده شد و در پروفایل ثبت گردید."
+                    } else {
+                        coinManager.setWatchedAdsCount(current)
+                        watchedAdsCount = current
+                        statusMessage = "تبلیغ ${current} از ۵ با موفقیت دیده شد. ${5 - current} تبلیغ دیگر باقی مانده است."
+                    }
+                } else {
+                    statusMessage = message
+                }
+            }
+        )
+    }
+
+    fun onTapsellAdCompleted() {
+        showTapsellAdDialog = false
+        isWatchingAd = false
+        val current = coinManager.getWatchedAdsCount() + 1
+        if (current >= 5) {
+            coinManager.setWatchedAdsCount(0)
+            watchedAdsCount = 0
+            transactionManager.addTransaction("مشاهده ۵ تبلیغ کامل تپسل", 0)
+            transactionHistory = transactionManager.getTransactions()
+            viewModelScope.launch {
+                adTaskDao.insertTask(
+                    com.example.data.AdTaskRecordEntity(taskTitle = "تکمیل ۵ تبلیغ ویدئویی واقعی تپسل", rewardCoins = 0)
+                )
+            }
+            statusMessage = "تبریک! ۵ تبلیغ تپسل با موفقیت کامل دیده شد و در پروفایل ثبت گردید."
+        } else {
+            coinManager.setWatchedAdsCount(current)
+            watchedAdsCount = current
+            statusMessage = "تبلیغ ${current} از ۵ با موفقیت دیده شد. ${5 - current} تبلیغ دیگر باقی مانده است."
+        }
+    }
+
+    fun dismissTapsellAd() {
+        showTapsellAdDialog = false
+        isWatchingAd = false
+    }
+
     fun speak() {
         if (text.isBlank()) return
 
         // Deduct 2 coins for generating speech
         if (!coinManager.deductCoins(2)) {
-            statusMessage = "موجودی سکه کافی نیست! لطفاً از فروشگاه سکه تهیه کنید."
+            statusMessage = "موجودی سکه کافی نیست! لطفاً از فروشگاه سکه تهیه کنید یا ۵ تبلیغ تپسل ببینید."
             showStoreDialog = true
             return
         }
@@ -126,7 +219,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
         // Deduct 2 coins for saving audio
         if (!coinManager.deductCoins(2)) {
-            statusMessage = "موجودی سکه کافی نیست! لطفاً از فروشگاه سکه تهیه کنید."
+            statusMessage = "موجودی سکه کافی نیست! لطفاً از فروشگاه سکه تهیه کنید یا ۵ تبلیغ تپسل ببینید."
             showStoreDialog = true
             return
         }
@@ -162,12 +255,22 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun buyPack(pack: CoinPack) {
+    fun buyPack(activity: Activity, pack: CoinPack) {
+        statusMessage = "در حال اتصال به درگاه پرداخت مایکت..."
+        myketBillingManager.launchPurchase(activity, pack.sku, 1001)
+    }
+
+    fun buyPackDirect(pack: CoinPack) {
         coinManager.addCoins(pack.coins)
         coinBalance = coinManager.getCoins()
         transactionManager.addTransaction("خرید ${pack.title}", pack.coins)
         transactionHistory = transactionManager.getTransactions()
         statusMessage = "خرید موفق! ${pack.coins} سکه اضافه شد."
         showStoreDialog = false
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        myketBillingManager.release()
     }
 }

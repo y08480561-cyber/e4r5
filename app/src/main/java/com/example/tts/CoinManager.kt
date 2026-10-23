@@ -38,4 +38,32 @@ class CoinManager(context: Context) {
         }
         return false
     }
+
+    fun getWatchedAdsCount(): Int {
+        return prefs.getInt("watched_ads_count", 0)
+    }
+
+    fun setWatchedAdsCount(count: Int) {
+        prefs.edit().putInt("watched_ads_count", count).apply()
+    }
+
+    fun isUserRegistered(): Boolean {
+        return prefs.getBoolean("is_registered", false)
+    }
+
+    fun getUserName(): String {
+        return prefs.getString("user_name", "کاربر صدایار") ?: "کاربر صدایار"
+    }
+
+    fun getUserPhone(): String {
+        return prefs.getString("user_phone", "") ?: ""
+    }
+
+    fun registerUser(name: String, phone: String) {
+        prefs.edit()
+            .putBoolean("is_registered", true)
+            .putString("user_name", name)
+            .putString("user_phone", phone)
+            .apply()
+    }
 }
